@@ -1,0 +1,10 @@
+Muestras de piano: Salamander Grand Piano V3
+Autor: Alexander Holm — https://archive.org/details/SalamanderGrandPianoV3
+Licencia: Creative Commons Attribution 3.0 (CC BY 3.0) — https://creativecommons.org/licenses/by/3.0/
+
+Origen de estos archivos: la versión en MP3 que publica Tone.js
+(https://tonejs.github.io/audio/salamander/), una nota cada tercera menor.
+
+Cambios hechos para esta app: convertidas a mono, recortado el silencio
+inicial, recortadas a 6 s con un desvanecimiento final de 1,5 s, Ds5
+subida de volumen para igualarla con sus vecinas, y recodificadas en AAC.
