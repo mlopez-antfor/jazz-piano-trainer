@@ -321,7 +321,9 @@ function audioEntryFor(name) {
 const HISTORY_SHOWN = 40; // más de las que caben: el resto se recorta por abajo
 function renderHistory() {
   const rows = store.load('history', [])
-    .filter((r) => sameScore(scoreKey(r.score), scoreKey(settings.lastScore)) && r.mode === settings.mode && !r.loop)
+    .filter((r) => sameScore(scoreKey(r.score), scoreKey(settings.lastScore)) && r.mode === settings.mode && !r.loop &&
+      // En A tempo solo se compara lo hecho al mismo tempo (decisión del usuario).
+      (settings.mode !== 'tempo' || r.tempo === settings.tempo))
     .slice(-HISTORY_SHOWN - 1);
   for (const [id, key] of [['hist-exact', 'exact'], ['hist-real', 'real']]) {
     const ol = $(id);
@@ -898,6 +900,7 @@ function changeTempo(delta) {
   settings.tempo = Math.max(TEMPO_MIN, Math.min(TEMPO_MAX, settings.tempo + delta));
   tempo.setTempo(settings.tempo); // también mientras suena
   backing.setTempo(settings.tempo);
+  renderHistory();
   saveSettings();
   updateControls();
 }
