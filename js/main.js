@@ -301,11 +301,25 @@ function scoreKey(id) {
   return id.startsWith('f:') ? nameFromFile(id.slice(2)) : id.slice(2);
 }
 
+// Para comparar nombres de partitura: «PJP 1101 - Acordes de séptima» y
+// «PJP-1101-Acordes de séptima» son la misma (solo cambian espacios, guiones
+// o mayúsculas).
+function sameScore(a, b) {
+  const norm = (s) => String(s || '').normalize('NFC').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '');
+  return norm(a) === norm(b);
+}
+
+// Audio asociado a una partitura (aunque se guardara con el nombre escrito de otra forma).
+function audioEntryFor(name) {
+  const k = Object.keys(settings.audioByScore).find((x) => sameScore(x, name));
+  return k ? { key: k, value: settings.audioByScore[k] } : null;
+}
+
 // Columnas de rondas anteriores (partitura y modo actuales, sin bucles).
 const HISTORY_SHOWN = 40; // más de las que caben: el resto se recorta por abajo
 function renderHistory() {
   const rows = store.load('history', [])
-    .filter((r) => scoreKey(r.score) === scoreKey(settings.lastScore) && r.mode === settings.mode && !r.loop)
+    .filter((r) => sameScore(scoreKey(r.score), scoreKey(settings.lastScore)) && r.mode === settings.mode && !r.loop)
     .slice(-HISTORY_SHOWN - 1);
   for (const [id, key] of [['hist-exact', 'exact'], ['hist-real', 'real']]) {
     const ol = $(id);
@@ -454,7 +468,9 @@ function updateControls() {
 // las partituras. Cada partitura recuerda el suyo; el botón del ribbon lo
 // enciende y apaga (solo suena en A tempo).
 function currentAudio() {
-  return score ? settings.audioByScore[scoreKey(settings.lastScore)] || null : null;
+  if (!score) return null;
+  const e = audioEntryFor(scoreKey(settings.lastScore));
+  return e ? e.value : null;
 }
 
 // El audio se reproduce desde un objectURL del archivo guardado; se libera
@@ -588,6 +604,8 @@ $('audio-list').addEventListener('click', async (e) => {
   }
   const b = e.target.closest('button[data-file]');
   if (!b) return;
+  const old = audioEntryFor(scoreKey(settings.lastScore));
+  if (old) delete settings.audioByScore[old.key];
   settings.audioByScore[scoreKey(settings.lastScore)] = { file: b.dataset.file, tempo: pickerTempo };
   settings.audioOn = true;
   saveSettings();
@@ -595,7 +613,8 @@ $('audio-list').addEventListener('click', async (e) => {
   updateBackingSource();
 });
 $('audio-none').addEventListener('click', () => {
-  delete settings.audioByScore[scoreKey(settings.lastScore)];
+  const old = audioEntryFor(scoreKey(settings.lastScore));
+  if (old) delete settings.audioByScore[old.key];
   saveSettings();
   $('audio-dialog').hidden = true;
   updateBackingSource();
