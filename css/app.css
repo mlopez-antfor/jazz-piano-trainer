@@ -94,6 +94,7 @@ button.primary { background: var(--accent); border-color: var(--accent); }
   stroke-linecap: round; stroke-linejoin: round;
 }
 .tool:disabled { opacity: 0.3; }
+.score-name select:disabled { opacity: 0.6; }
 .tool.selected { background: var(--accent); border-color: var(--accent); }
 .group {
   display: flex; align-items: center; gap: 10px;

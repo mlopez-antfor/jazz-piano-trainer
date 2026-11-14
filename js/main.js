@@ -257,7 +257,9 @@ function onPracticeEvent(e) {
     backing.stop();
     updateControls();
   }
-  if (e.type === 'pass' && settings.mode === 'wait' && !wait.active) Promise.resolve().then(updateControls);
+  // Al acabar una ronda puede haberse parado (sin bucle): actualizar botones
+  // cuando la práctica termine de procesar el acorde.
+  if (e.type === 'pass') Promise.resolve().then(updateControls);
   if (e.type === 'pass') {
     roundFinished(e);
     // Wait: la ronda siguiente, con otro orden (después de terminar este acorde).
@@ -345,7 +347,9 @@ function renderHistory() {
 }
 
 // Eventos de la región que se practica (toda la partitura o el bucle).
-function applyRegion() {
+/** @param {boolean} keepRunning si el ejercicio estaba en marcha, seguir (bucle, aleatorio) */
+function applyRegion(keepRunning = false) {
+  const wasRunning = keepRunning && (settings.mode === 'tempo' ? tempo.running : wait.active);
   stopAll();
   const events = score ? score.events : [];
   let sub = events;
@@ -373,6 +377,7 @@ function applyRegion() {
   leadsheet.clearResults();
   updateControls();
   render();
+  if (wasRunning) play(true);
 }
 
 // Parar todo y volver al principio de la región; los porcentajes se descartan.
@@ -388,14 +393,15 @@ function stopAll() {
   leadsheet.clearResults();
 }
 
-function play() {
+/** @param {boolean} keepMessage no borrar el mensaje (al seguir tras cambiar bucle o aleatorio) */
+function play(keepMessage = false) {
   audio.unlock();
   audio.loadPiano('sonidos/piano/'); // por si no se cargó al empezar
   if (settings.mode === 'wait') {
     wait.start();
   } else if (!tempo.running) {
     leadsheet.clearResults();
-    const withAudio = !!backing.url && !shuffle; // iReal va en su orden: con aleatorio no cuadra
+    const withAudio = audioUsable() && !!backing.url;
     tempo.setOptions({ countIn: !withAudio }); // el audio de iReal ya trae su cuenta previa
     tempo.start();
     if (withAudio) {
@@ -420,7 +426,7 @@ function play() {
       tempo.tick();
     }, 25);
   }
-  showMessage('');
+  if (!keepMessage) showMessage('');
   updateControls();
   render();
 }
@@ -451,19 +457,33 @@ function updateControls() {
   $('bpm').textContent = settings.tempo;
   $('btn-loop').classList.toggle('selected', !!loop);
   const a = currentAudio();
-  $('btn-audio').classList.toggle('selected', settings.audioOn && !!a && !shuffle);
-  $('btn-audio').disabled = shuffle;
+  const usable = audioUsable();
+  $('btn-audio').classList.toggle('selected', usable && settings.audioOn && !!a);
+  $('btn-audio').disabled = !usable || running;
   $('btn-shuffle').classList.toggle('selected', shuffle);
+  // Mientras se toca, solo pausar, reiniciar, tempo y opciones (decisión del
+  // usuario): lo demás cambiaría el ejercicio a mitad de ronda.
+  for (const id of ['btn-shuffle', 'btn-loop', 'btn-mode-wait', 'btn-mode-tempo', 'btn-import', 'score-select']) {
+    $(id).disabled = running;
+  }
+  if (running) $('btn-delete').disabled = true;
+  else $('btn-delete').disabled = !score;
   $('btn-audio').title = a ? `Audio: ${a.file}` : 'Audio de acompañamiento';
   $('opt-audio-name').textContent = a ? a.file : 'ninguno';
   const as = $('audio-status');
   as.hidden = !a;
-  as.classList.toggle('on', !!a && settings.audioOn && !shuffle);
+  as.classList.toggle('on', !!a && settings.audioOn && usable);
   $('audio-status-name').textContent = a ? a.file.replace(/\.(m4a|aac|mp3|wav)$/i, '') : '';
   as.title = a ? (settings.audioOn ? 'Audio activado' : 'Audio apagado') : '';
 }
 
 // ---------- Audio de acompañamiento (iReal) ----------
+// Solo en A tempo, tocando la partitura entera y en orden: con bucle o
+// aleatorio el audio de iReal no cuadraría (decisión del usuario).
+function audioUsable() {
+  return settings.mode === 'tempo' && !loop && !shuffle;
+}
+
 // Los audios se importan desde iCloud Drive y se guardan en el iPad, como
 // las partituras. Cada partitura recuerda el suyo; el botón del ribbon lo
 // enciende y apaga (solo suena en A tempo).
@@ -718,16 +738,17 @@ const keyboard = new Keyboard($('keyboard'), { onPress: press, onRelease: releas
 // Tocar un compás del lead sheet: con el bucle activo, elige su inicio y
 // final; si no, salta a ese compás.
 const leadsheet = new LeadSheet($('leadsheet'), (measureIndex) => {
+  if (settings.mode === 'tempo' ? tempo.running : wait.active) return; // en marcha no se salta ni se cambia el bucle
   if (loop) {
     if (!loopSelecting) {
       loop = { a: measureIndex, b: measureIndex };
       loopSelecting = true;
-      applyRegion();
+      applyRegion(true);
       showMessage('Toca el último compás del bucle.');
     } else {
       loop = { a: Math.min(loop.a, measureIndex), b: Math.max(loop.a, measureIndex) };
       loopSelecting = false;
-      applyRegion();
+      applyRegion(true);
       showMessage(`Bucle: compases ${score.measures[loop.a].number}–${score.measures[loop.b].number}`);
     }
     return;
@@ -858,7 +879,7 @@ for (const [id, key, apply] of [
 }
 
 // Transporte y modo
-$('btn-play').addEventListener('click', play);
+$('btn-play').addEventListener('click', () => play());
 $('btn-pause').addEventListener('click', pause);
 $('btn-restart').addEventListener('click', restart);
 function setMode(mode) {
@@ -884,8 +905,8 @@ $('btn-slower').addEventListener('click', () => changeTempo(-TEMPO_STEP));
 $('btn-faster').addEventListener('click', () => changeTempo(TEMPO_STEP));
 $('btn-shuffle').addEventListener('click', () => {
   shuffle = !shuffle;
-  showMessage(shuffle ? 'Tonalidades en orden aleatorio (sin audio de iReal).' : '');
-  applyRegion();
+  showMessage(shuffle ? 'Tonalidades en orden aleatorio.' : '');
+  applyRegion(true);
 });
 $('btn-loop').addEventListener('click', () => {
   loopSelecting = false;
@@ -901,7 +922,7 @@ $('btn-loop').addEventListener('click', () => {
   } else {
     return;
   }
-  applyRegion();
+  applyRegion(true);
 });
 $('score-select').addEventListener('change', (e) => { showMessage(''); selectScore(e.target.value); });
 $('btn-import').addEventListener('click', () => $('file-input').click());
