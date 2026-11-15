@@ -142,15 +142,18 @@ button.primary { background: var(--accent); border-color: var(--accent); }
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   border-left: 3px solid #5a6170;
-  margin-bottom: 6px;
+  margin-bottom: 4px;
 }
 .ls-measure {
   position: relative;
-  min-height: 64px;
+  /* --ls-row-h y --ls-font los calcula leadsheet.js para que todas las
+     líneas quepan sin scroll; si no caben, valores por defecto y scroll. */
+  height: var(--ls-row-h, auto);
+  min-height: var(--ls-row-h, 64px);
   border-right: 3px solid #5a6170;
   display: flex;
   align-items: center;
-  padding: 14px 8px 6px;
+  padding: 12px 8px 2px;
   min-width: 0;
 }
 .ls-num {
@@ -159,7 +162,7 @@ button.primary { background: var(--accent); border-color: var(--accent); }
 }
 .ls-chords {
   display: flex; gap: 10px; flex-wrap: wrap;
-  font-size: 26px; font-weight: 600;
+  font-size: var(--ls-font, 26px); font-weight: 600; line-height: 1.05;
   white-space: nowrap;
 }
 .ls-measure.current { background: #2b3f5c; }
@@ -316,5 +319,5 @@ button.primary { background: var(--accent); border-color: var(--accent); }
   .backup-buttons button { font-size: 14px; gap: 5px; padding: 4px 5px; }
   .backup-buttons .opt-btn { width: 50px; }
   .history { width: 78px; font-size: 14px; }
-  .ls-chords { font-size: 22px; }
+  .ls-chords { font-size: var(--ls-font, 22px); }
 }

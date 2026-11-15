@@ -17,6 +17,14 @@ export class LeadSheet {
     this.currentChord = null;
     this.currentRow = -1;
     this.marked = new Set();
+    // Reajustar el alto de las líneas si cambia el tamaño (girar el iPad,
+    // ampliar el teclado…).
+    if (typeof ResizeObserver !== 'undefined') {
+      this.resizer = new ResizeObserver(() => this.fit());
+      this.resizer.observe(container);
+    } else {
+      window.addEventListener('resize', () => this.fit());
+    }
     container.addEventListener('click', (e) => {
       const cell = e.target.closest ? e.target.closest('.ls-measure') : null;
       if (cell) onMeasureTap(Number(cell.dataset.measure));
@@ -66,6 +74,27 @@ export class LeadSheet {
     });
     this.container.appendChild(frag);
     this.container.scrollTop = 0;
+    this.fit();
+  }
+
+  /**
+   * Reparte el alto disponible entre las líneas para que quepan todas sin
+   * scroll (p. ej. las 12 líneas de 48 compases). El cifrado se escala con
+   * el alto. Si quedarían demasiado bajas, se deja el tamaño normal y scroll.
+   */
+  fit() {
+    const c = this.container;
+    const rows = c.querySelectorAll('.ls-row').length;
+    const s = c.style;
+    if (!rows) { s.removeProperty('--ls-row-h'); s.removeProperty('--ls-font'); return; }
+    const cs = getComputedStyle(c);
+    const avail = c.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
+    const gap = 4; // margin-bottom de cada línea
+    const rowH = Math.floor((avail - gap * rows) / rows);
+    if (rowH < 40) { s.removeProperty('--ls-row-h'); s.removeProperty('--ls-font'); return; }
+    const h = Math.min(rowH, 90);
+    s.setProperty('--ls-row-h', h + 'px');
+    s.setProperty('--ls-font', Math.round(Math.max(18, Math.min(30, h * 0.52))) + 'px');
   }
 
   /** Marca el bucle (compases a..b); null lo quita. */
