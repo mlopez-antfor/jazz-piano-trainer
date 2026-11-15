@@ -3,7 +3,7 @@
 // Estrategia: primero la red (así siempre llega la última versión) y, si no
 // hay conexión, la copia guardada. Las muestras de piano no cambian: primero
 // la copia.
-const CACHE = 'jpt-v5';
+const CACHE = 'jpt-v6';
 
 self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', (e) => {

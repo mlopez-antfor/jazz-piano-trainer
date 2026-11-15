@@ -980,8 +980,10 @@ async function saveBackup() {
     settings: { ...settings, lastBackup: now.toISOString() },
     history: store.load('history', []),
   };
-  const stamp = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-  const name = `jazz-piano-trainer-copia-${stamp}.json`;
+  // Siempre el mismo nombre: al guardarla en la misma carpeta de iCloud, iOS
+  // ofrece reemplazar la anterior (una web no puede sobrescribirla sola).
+  // La fecha va dentro del archivo.
+  const name = 'jazz-piano-trainer-copia.json';
   const blob = new Blob([JSON.stringify(data, null, 1)], { type: 'application/json' });
   const file = new File([blob], name, { type: 'application/json' });
   let done = false;
@@ -1009,7 +1011,7 @@ async function saveBackup() {
   settings.lastBackup = now.toISOString();
   saveSettings();
   renderBackupAge();
-  showMessage(`Copia preparada: ${name}. Guárdala en iCloud Drive.`);
+  showMessage(`Copia preparada: ${name}. Guárdala en tu carpeta de iCloud Drive y elige «Reemplazar».`);
 }
 
 async function restoreBackup(file) {
