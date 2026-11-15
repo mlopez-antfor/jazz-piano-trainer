@@ -33,10 +33,12 @@ export class Keyboard {
   }
 
   setRange(lo, hi) {
-    // Ajustar a octavas completas (de un Do a un Do), sin salir del piano
-    // de 88 teclas (A0–C8).
-    lo = Math.max(21, lo - (lo % 12));
-    hi = Math.min(108, hi + ((12 - (hi % 12)) % 12));
+    // Empezar y acabar en tecla blanca, sin salir del piano de 88 teclas
+    // (A0–C8). Las zonas de las opciones ya vienen en Do.
+    if (BLACK.has(lo % 12)) lo -= 1;
+    if (BLACK.has(hi % 12)) hi += 1;
+    lo = Math.max(21, lo);
+    hi = Math.min(108, hi);
     if (this.range && this.range[0] === lo && this.range[1] === hi) return;
     this.releaseAllTouch();
     this.range = [lo, hi];

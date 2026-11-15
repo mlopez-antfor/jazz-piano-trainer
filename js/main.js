@@ -45,6 +45,7 @@ delete settings.flexRoot;
 delete settings.latch;
 if (!(settings.rootRange in ROOT_RANGES)) settings.rootRange = 'c2';
 if (settings.mode !== 'tempo') settings.mode = 'wait';
+if (![1, 2, 3].includes(settings.marginBeats)) settings.marginBeats = 1; // ½ tiempo ya no existe
 function saveSettings() { store.save('settings', settings); }
 
 const TEMPO_MIN = 30;
@@ -131,9 +132,11 @@ function setupKeyboardRange(events) {
   const z = settings.keys;
   let lo = z.left ? 21 : 36;
   let hi = z.right ? 108 : z.c6 ? 96 : z.c5 ? 84 : 72;
+  // Si la partitura tiene notas fuera de las zonas elegidas, ampliar solo lo
+  // justo para verlas (una tecla más), no una octava entera.
   for (const ev of events) for (const n of ev.notes) {
-    lo = Math.min(lo, n.midi);
-    hi = Math.max(hi, n.midi);
+    if (n.midi < lo) lo = n.midi - 1;
+    if (n.midi > hi) hi = n.midi + 1;
   }
   keyboard.setRange(lo, hi);
 }
