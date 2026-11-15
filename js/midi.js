@@ -20,20 +20,55 @@ function emitState() {
   for (const cb of stateCbs) cb(getState());
 }
 
+// Bytes de datos que sigue a cada tipo de mensaje de canal.
+const DATA_LEN = { 0x80: 2, 0x90: 2, 0xa0: 2, 0xb0: 2, 0xc0: 1, 0xd0: 1, 0xe0: 2 };
+const SYSTEM_LEN = { 0xf1: 1, 0xf2: 2, 0xf3: 1 };
+
+/**
+ * Lee TODOS los mensajes que vengan en un mismo paquete. Por Bluetooth, un
+ * acorde puede llegar en un solo paquete con varias notas seguidas, incluso
+ * sin repetir el byte de estado ("running status"); leer solo el primero
+ * hacía que a veces se perdieran notas del acorde.
+ * @param {Uint8Array|number[]} data
+ * @param {(note:number, vel:number)=>void} on
+ * @param {(note:number)=>void} off
+ */
+export function parseMidi(data, on, off) {
+  let i = 0;
+  let running = 0;
+  while (i < data.length) {
+    const b = data[i];
+    if (b >= 0xf8) { i++; continue; }                 // tiempo real (reloj, active sensing)
+    if (b === 0xf0) {                                  // sysex: saltar hasta F7
+      while (i < data.length && data[i] !== 0xf7) i++;
+      i++; running = 0; continue;
+    }
+    if (b >= 0xf0) { i += 1 + (SYSTEM_LEN[b] || 0); running = 0; continue; }
+    if (b & 0x80) { running = b; i++; }
+    else if (!running) { i++; continue; }              // dato suelto sin estado: ignorar
+    const type = running & 0xf0;
+    const n = DATA_LEN[type];
+    if (i + n > data.length) break;                    // mensaje cortado
+    if (type === 0x90) {
+      if (data[i + 1] > 0) on(data[i], data[i + 1]);
+      else off(data[i]);                               // nota con velocidad 0 = soltar
+    } else if (type === 0x80) {
+      off(data[i]);
+    }
+    // Pedal y demás controles: de momento no se usan.
+    i += n;
+  }
+}
+
 function handleMessage(e) {
   const data = e.data;
   if (!data || data.length < 1) return;
-  const status = data[0];
-  if (status >= 0xf0) return; // reloj, active sensing, sysex: se ignoran
-  const type = status & 0xf0;
   const time = e.timeStamp || performance.now();
-  if (type === 0x90 && data.length >= 3) {
-    if (data[2] > 0) for (const cb of noteOnCbs) cb(data[1], data[2], time);
-    else for (const cb of noteOffCbs) cb(data[1], time);
-  } else if (type === 0x80 && data.length >= 3) {
-    for (const cb of noteOffCbs) cb(data[1], time);
-  }
-  // Pedal y demás controles: de momento no se usan.
+  parseMidi(
+    data,
+    (note, vel) => { for (const cb of noteOnCbs) cb(note, vel, time); },
+    (note) => { for (const cb of noteOffCbs) cb(note, time); },
+  );
 }
 
 function refreshPorts() {
