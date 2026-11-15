@@ -80,11 +80,19 @@ button.primary { background: var(--accent); border-color: var(--accent); }
 .spacer { flex: 1; }
 
 /* Ribbon de herramientas: botones iguales, solo icono */
+/* Columna derecha: ribbon arriba y, debajo, historial + panel + historial.
+   El lead sheet ocupa toda la altura a la izquierda. */
+.right { flex: none; display: flex; flex-direction: column; gap: 10px; min-height: 0; }
+.right-body { flex: 1; display: flex; gap: 12px; min-height: 0; }
 .ribbon {
-  display: flex; align-items: center; gap: 10px;
-  padding: 8px 16px;
+  display: flex; align-items: center; justify-content: space-between; gap: 6px;
+  padding: 6px 8px;
   background: var(--panel);
+  border-radius: 14px;
 }
+.ribbon .tool { width: 48px; height: 48px; }
+.ribbon #btn-slower, .ribbon #btn-faster { width: 34px; }
+.ribbon #btn-slower svg, .ribbon #btn-faster svg { width: 22px; }
 .tool {
   width: 56px; height: 52px; min-height: 0; padding: 0;
   display: flex; align-items: center; justify-content: center;
@@ -98,12 +106,12 @@ button.primary { background: var(--accent); border-color: var(--accent); }
 .score-name select:disabled { opacity: 0.6; }
 .tool.selected { background: var(--accent); border-color: var(--accent); }
 .group {
-  display: flex; align-items: center; gap: 10px;
-  padding: 3px 6px; border: 2px solid #3a404c; border-radius: 14px;
+  display: flex; align-items: center; gap: 4px;
+  padding: 2px 4px; border: 2px solid #3a404c; border-radius: 12px;
 }
-.sep { width: 1px; align-self: stretch; margin: 4px 6px; background: #3a404c; }
-.bpm { display: flex; flex-direction: column; align-items: center; min-width: 54px; line-height: 1; }
-.bpm span { font-size: 26px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.sep { width: 1px; align-self: stretch; margin: 4px 1px; background: #3a404c; }
+.bpm { display: flex; flex-direction: column; align-items: center; min-width: 44px; line-height: 1; }
+.bpm span { font-size: 24px; font-weight: 700; font-variant-numeric: tabular-nums; }
 .bpm small { color: var(--muted); font-size: 12px; margin-top: 2px; }
 .transport { display: flex; gap: 10px; align-items: center; }
 .transport .tool { flex: 1; width: auto; }
@@ -162,7 +170,7 @@ button.primary { background: var(--accent); border-color: var(--accent); }
 
 /* Panel derecho: porcentajes arriba, acorde tocado abajo */
 .panel {
-  width: 320px;
+  flex: 1; min-width: 0;
   display: flex; flex-direction: column; gap: 12px;
   min-height: 0;
 }
@@ -193,9 +201,11 @@ button.primary { background: var(--accent); border-color: var(--accent); }
 .backup { display: flex; flex-direction: column; gap: 4px; }
 .backup-buttons { display: flex; gap: 8px; }
 .backup-buttons button {
-  flex: 1; min-width: 0; padding: 6px 8px; min-height: 44px; font-size: 15px;
-  display: flex; align-items: center; justify-content: center; gap: 6px;
+  flex: 1; min-width: 0; padding: 4px 8px; min-height: 56px; font-size: 15px; line-height: 1.15;
+  display: flex; align-items: center; justify-content: center; gap: 8px; text-align: left;
 }
+.backup-buttons .opt-btn { flex: none; width: 60px; height: auto; }
+.backup-buttons .opt-btn svg { width: 28px; height: 28px; }
 .backup-buttons svg { width: 20px; height: 20px; flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .backup-age { color: var(--muted); font-size: 13px; text-align: center; min-height: 1.2em; }
 .backup-age.old { color: var(--missing); }
@@ -291,7 +301,8 @@ button.primary { background: var(--accent); border-color: var(--accent); }
 .key.white.wrong .label, .key.white.missing .label { color: #fff; }
 
 @media (max-width: 1100px) {
-  .panel { width: 260px; }
+  .ribbon .tool { width: 44px; height: 44px; }
+  .ribbon #btn-slower, .ribbon #btn-faster { width: 30px; }
   .history { width: 78px; font-size: 14px; }
   .ls-chords { font-size: 22px; }
 }
