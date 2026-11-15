@@ -404,6 +404,8 @@ function play(keepMessage = false) {
   } else if (!tempo.running) {
     leadsheet.clearResults();
     const withAudio = audioUsable() && !!backing.url;
+    audioRun = withAudio;
+    tempoOptions();
     tempo.setOptions({ countIn: !withAudio }); // el audio de iReal ya trae su cuenta previa
     tempo.start();
     if (withAudio) {
@@ -413,6 +415,8 @@ function play(keepMessage = false) {
       backing.start({ regionStartQ: tempo.regionStartQ, relQ: tempo.startRelQ - tempo.barQ, bpm: settings.tempo })
         .catch((err) => {
           backing.stop();
+          audioRun = false; // sin base: vuelve el piano de la app
+          tempoOptions();
           showMessage('No se pudo reproducir el audio: ' + (err.message || err), true);
         });
     }
@@ -846,8 +850,11 @@ const optMetro = $('opt-metronome');
 const optChords = $('opt-chords');
 optMetro.checked = settings.metronome;
 optChords.checked = settings.playChords;
+// Con la base de iReal sonando, el piano de la app se calla (decisión del
+// usuario): si quiere piano, lo exporta en la propia base.
+let audioRun = false;
 function tempoOptions() {
-  tempo.setOptions({ metronome: settings.metronome, playChords: settings.playChords, marginBeats: settings.marginBeats });
+  tempo.setOptions({ metronome: settings.metronome, playChords: settings.playChords && !audioRun, marginBeats: settings.marginBeats });
 }
 optMetro.addEventListener('change', () => { settings.metronome = optMetro.checked; saveSettings(); tempoOptions(); });
 optChords.addEventListener('change', () => { settings.playChords = optChords.checked; saveSettings(); tempoOptions(); });
