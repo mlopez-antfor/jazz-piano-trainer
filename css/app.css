@@ -82,16 +82,18 @@ button.primary { background: var(--accent); border-color: var(--accent); }
 /* Ribbon de herramientas: botones iguales, solo icono */
 /* Columna derecha: ribbon arriba y, debajo, historial + panel + historial.
    El lead sheet ocupa toda la altura a la izquierda. */
-.right { flex: none; display: flex; flex-direction: column; gap: 10px; min-height: 0; }
-.right-body { flex: 1; display: flex; gap: 12px; min-height: 0; }
+/* Ancho fijo, el mismo que tenían historial + panel + historial (84 + 320 + 84
+   y dos huecos de 16): el ribbon se encaja en ese ancho. */
+.right { flex: none; width: 520px; display: flex; flex-direction: column; gap: 10px; min-height: 0; }
+.right-body { flex: 1; display: flex; gap: 16px; min-height: 0; }
 .ribbon {
   display: flex; align-items: center; justify-content: space-between; gap: 6px;
   padding: 6px 8px;
   background: var(--panel);
   border-radius: 14px;
 }
-.ribbon .tool { width: 48px; height: 48px; }
-.ribbon #btn-slower, .ribbon #btn-faster { width: 34px; }
+.ribbon .tool { width: 44px; height: 46px; }
+.ribbon #btn-slower, .ribbon #btn-faster { width: 30px; }
 .ribbon #btn-slower svg, .ribbon #btn-faster svg { width: 22px; }
 .tool {
   width: 56px; height: 52px; min-height: 0; padding: 0;
@@ -170,7 +172,7 @@ button.primary { background: var(--accent); border-color: var(--accent); }
 
 /* Panel derecho: porcentajes arriba, acorde tocado abajo */
 .panel {
-  flex: 1; min-width: 0;
+  flex: none; width: 320px;
   display: flex; flex-direction: column; gap: 12px;
   min-height: 0;
 }
@@ -301,8 +303,18 @@ button.primary { background: var(--accent); border-color: var(--accent); }
 .key.white.wrong .label, .key.white.missing .label { color: #fff; }
 
 @media (max-width: 1100px) {
-  .ribbon .tool { width: 44px; height: 44px; }
-  .ribbon #btn-slower, .ribbon #btn-faster { width: 30px; }
+  .right { width: 448px; } /* 78 + 260 + 78 + 2 × 16 */
+  .panel { width: 260px; }
+  .ribbon { gap: 3px; padding: 6px 4px; }
+  .ribbon .tool { width: 40px; height: 44px; }
+  .ribbon .tool svg { width: 24px; height: 24px; }
+  .ribbon #btn-slower, .ribbon #btn-faster { width: 26px; }
+  .group { gap: 3px; padding: 2px 3px; }
+  .bpm { min-width: 38px; }
+  .bpm span { font-size: 21px; }
+  .backup-buttons { gap: 6px; }
+  .backup-buttons button { font-size: 14px; gap: 5px; padding: 4px 5px; }
+  .backup-buttons .opt-btn { width: 50px; }
   .history { width: 78px; font-size: 14px; }
   .ls-chords { font-size: 22px; }
 }
