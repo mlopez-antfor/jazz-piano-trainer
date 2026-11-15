@@ -990,7 +990,7 @@ async function saveBackup() {
   // 1) Hoja de compartir del sistema (en el iPad: «Guardar en Archivos»).
   try {
     if (navigator.canShare && navigator.canShare({ files: [file] })) {
-      await navigator.share({ files: [file], title: 'Copia de Jazz Piano Trainer' });
+      await navigator.share({ files: [file] }); // solo el archivo: con title, iOS guarda además un texto.txt
       done = true;
     }
   } catch (err) {
