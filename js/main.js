@@ -249,9 +249,10 @@ function onPracticeEvent(e) {
   if (e.type === 'success') flash();
   if (e.type === 'result') {
     leadsheet.setResult(e.event.harmonyIndex, e.result);
+    roundRes[e.event.harmonyIndex] = e.result;
     if (settings.mode === 'tempo' && e.result !== 'miss') flash();
   }
-  if (e.type === 'newpass') leadsheet.clearResults();
+  if (e.type === 'newpass') { leadsheet.clearResults(); roundRes = {}; }
   if (e.type === 'ended') {
     // A tempo terminó la partitura: parar también el audio.
     clearInterval(tickTimer);
@@ -280,6 +281,12 @@ const tempo = new TempoPractice({
 const P = () => (settings.mode === 'tempo' ? tempo : wait);
 
 // Ronda terminada: es lo único que se guarda (reiniciar a medias no cuenta).
+// Colores de cada acorde en la ronda en curso (índice de cifrado -> resultado),
+// para guardarlos con la ronda y poder volver a verlos desde el historial.
+let roundRes = {};
+const RES_CODE = { ok: 'o', late: 'l', miss: 'm' };
+const RES_NAME = { o: 'ok', l: 'late', m: 'miss' };
+
 function roundFinished(e) {
   const fmt = (v) => (v === null ? '—' : Math.round(v) + '%');
   showMessage(`Ronda completa · Exacto ${fmt(e.exact)} · Real ${fmt(e.real)}`);
@@ -294,6 +301,8 @@ function roundFinished(e) {
     exact: e.exact,
     real: e.real,
     chords: e.stats.done,
+    // Un carácter por cifrado: o = verde, l = naranja, m = rojo, . = sin tocar.
+    res: score ? score.harmonies.map((h) => RES_CODE[roundRes[h.index]] || '.').join('') : '',
   });
   store.save('history', history.slice(-500));
   renderHistory();
@@ -322,12 +331,16 @@ function audioEntryFor(name) {
 
 // Columnas de rondas anteriores (partitura y modo actuales, sin bucles).
 const HISTORY_SHOWN = 40; // más de las que caben: el resto se recorta por abajo
-function renderHistory() {
-  const rows = store.load('history', [])
+function historyRows() {
+  return store.load('history', [])
     .filter((r) => sameScore(scoreKey(r.score), scoreKey(settings.lastScore)) && r.mode === settings.mode && !r.loop &&
       // En A tempo solo se compara lo hecho al mismo tempo (decisión del usuario).
       (settings.mode !== 'tempo' || r.tempo === settings.tempo))
     .slice(-HISTORY_SHOWN - 1);
+}
+
+function renderHistory() {
+  const rows = historyRows();
   for (const [id, key] of [['hist-exact', 'exact'], ['hist-real', 'real']]) {
     const ol = $(id);
     ol.textContent = '';
@@ -345,11 +358,48 @@ function renderHistory() {
       p.textContent = v === null ? '—' : v + '%';
       if (v !== null && prev !== null && v !== prev) p.className = v > prev ? 'up' : 'down';
       li.append(d, p);
+      li.dataset.date = rows[i].date;
+      if (rows[i].date === shownRound) li.classList.add('selected');
+      if (rows[i].res) li.classList.add('has-res');
       frag.appendChild(li);
     }
     ol.appendChild(frag);
   }
 }
+
+// Ver en el lead sheet cómo quedó una ronda (parado o en pausa): se toca una
+// línea del historial; tocarla otra vez quita los colores.
+let shownRound = null;
+function isRunning() { return settings.mode === 'tempo' ? tempo.running : wait.active; }
+function showRound(row) {
+  leadsheet.clearResults();
+  shownRound = row && row.res ? row.date : null;
+  if (shownRound) {
+    [...row.res].forEach((ch, i) => { if (RES_NAME[ch]) leadsheet.setResult(i, RES_NAME[ch]); });
+    const d = new Date(row.date);
+    showMessage(`Ronda del ${d.getDate()}/${d.getMonth() + 1} a las ${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}`);
+  } else if (row) {
+    showMessage('Esa ronda es de antes de guardar los colores.');
+  } else {
+    showMessage('');
+  }
+  renderHistory();
+}
+function onHistoryTap(e) {
+  const li = e.target.closest('li[data-date]');
+  if (!li || isRunning()) return;
+  const row = historyRows().find((r) => r.date === li.dataset.date);
+  showRound(row && row.date !== shownRound ? row : null);
+}
+$('hist-exact').addEventListener('click', onHistoryTap);
+$('hist-real').addEventListener('click', onHistoryTap);
+// Los porcentajes grandes: la última ronda.
+document.querySelector('.scores').addEventListener('click', () => {
+  if (isRunning()) return;
+  const rows = historyRows();
+  const last = rows[rows.length - 1];
+  showRound(last && last.date !== shownRound ? last : null);
+});
 
 // Eventos de la región que se practica (toda la partitura o el bucle).
 /** @param {boolean} keepRunning si el ejercicio estaba en marcha, seguir (bucle, aleatorio) */
@@ -389,6 +439,8 @@ function applyRegion(keepRunning = false) {
 let tickTimer = 0;
 const backing = new Backing();
 function stopAll() {
+  roundRes = {};
+  if (shownRound) { shownRound = null; renderHistory(); }
   clearInterval(tickTimer);
   tickTimer = 0;
   audio.cutElement(); // cortar de golpe, sin esperar a que se vacíe el búfer
@@ -400,6 +452,13 @@ function stopAll() {
 
 /** @param {boolean} keepMessage no borrar el mensaje (al seguir tras cambiar bucle o aleatorio) */
 function play(keepMessage = false) {
+  if (shownRound) {
+    // Volver a los colores de la ronda en curso (si se estaba en pausa).
+    shownRound = null;
+    leadsheet.clearResults();
+    for (const [i, r] of Object.entries(roundRes)) leadsheet.setResult(Number(i), r);
+    renderHistory();
+  }
   audio.unlock();
   audio.loadPiano('sonidos/piano/'); // por si no se cargó al empezar
   if (settings.mode === 'wait') {

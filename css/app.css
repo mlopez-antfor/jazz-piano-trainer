@@ -225,6 +225,9 @@ button.primary { background: var(--accent); border-color: var(--accent); }
 }
 .history li { padding: 3px 0; white-space: nowrap; border-bottom: 1px solid #262b34; }
 .history .d { color: var(--muted); font-size: 12px; margin-right: 4px; }
+.history li.has-res { cursor: pointer; }
+.history li.selected { background: #2b3f5c; border-radius: 4px; }
+.scores { cursor: pointer; }
 .history .up { color: var(--ok); }
 .history .down { color: var(--wrong); }
 
