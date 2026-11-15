@@ -72,6 +72,7 @@ button.primary { background: var(--accent); border-color: var(--accent); }
 }
 .score-name .caret { position: absolute; right: 4px; pointer-events: none; color: var(--muted); }
 .midi { color: var(--muted); white-space: nowrap; }
+.version { color: var(--muted); font-size: 13px; white-space: nowrap; }
 .save-status { color: var(--wrong); white-space: nowrap; }
 .save-status[hidden] { display: none; }
 .midi.on { color: var(--ok); }
