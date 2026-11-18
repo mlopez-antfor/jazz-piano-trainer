@@ -85,6 +85,11 @@ button.primary { background: var(--accent); border-color: var(--accent); }
 /* Ancho fijo, el mismo que tenían historial + panel + historial (84 + 320 + 84
    y dos huecos de 16): el ribbon se encaja en ese ancho. */
 .right { flex: none; width: 520px; display: flex; flex-direction: column; gap: 10px; min-height: 0; }
+.loop-modes { display: flex; align-items: center; justify-content: flex-end; gap: 8px; margin-top: -4px; }
+.loop-modes[hidden] { display: none; }
+.loop-modes-label { color: var(--muted); font-size: 14px; margin-right: 4px; }
+.loop-modes .tool { width: auto; height: 40px; padding: 0 12px; gap: 6px; font-size: 15px; }
+.loop-modes .tool svg { width: 22px; height: 22px; }
 .right-body { flex: 1; display: flex; gap: 16px; min-height: 0; }
 .ribbon {
   display: flex; align-items: center; justify-content: space-between; gap: 6px;

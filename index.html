@@ -29,7 +29,7 @@
     <span class="spacer"></span>
     <span id="save-status" class="save-status" hidden title="Los cambios se guardan en el navegador y se subirán al Mac cuando responda">⚠ Sin conexión con el Mac: no se guarda allí</span>
     <span id="midi-status" class="midi">MIDI: —</span>
-    <span id="app-version" class="version" title="Versión publicada">v9</span>
+    <span id="app-version" class="version" title="Versión publicada">v10</span>
   </header>
 
   <!-- Herramientas: solo iconos -->
@@ -72,6 +72,15 @@
         <svg viewBox="0 0 24 24"><path d="M16 3h5v5"/><path d="M4 20L21 3"/><path d="M21 16v5h-5"/><path d="M15 15l6 6"/><path d="M4 4l5 5"/></svg>
       </button>
     </nav>
+      <div id="loop-modes" class="loop-modes" hidden>
+        <span class="loop-modes-label">Bucle</span>
+        <button id="btn-loop-free" class="tool" title="Bucle libre: compases seguidos" aria-label="Bucle libre">
+          <svg viewBox="0 0 24 24"><path d="M3 12h18M7 8l-4 4 4 4M17 8l4 4-4 4"/></svg><span>Libre</span>
+        </button>
+        <button id="btn-loop-col" class="tool" title="Bucle en columna: el mismo compás de cada línea" aria-label="Bucle en columna">
+          <svg viewBox="0 0 24 24"><path d="M12 3v18M8 7l4-4 4 4M8 17l4 4 4-4"/></svg><span>Columna</span>
+        </button>
+      </div>
       <div class="right-body">
     <ol id="hist-exact" class="history" aria-label="Rondas anteriores: Exacto"></ol>
     <section class="panel">

@@ -97,12 +97,13 @@ export class LeadSheet {
     s.setProperty('--ls-font', Math.round(Math.max(18, Math.min(30, h * 0.52))) + 'px');
   }
 
-  /** Marca el bucle (compases a..b); null lo quita. */
-  setLoop(a, b) {
+  /** Marca los compases del bucle (lista de índices); null lo quita. */
+  setLoop(measures) {
+    const set = measures ? new Set(measures) : null;
     this.cells.forEach((cell, i) => {
-      const inside = a !== null && i >= a && i <= b;
+      const inside = !!set && set.has(i);
       cell.classList.toggle('in-loop', inside);
-      cell.classList.toggle('loop-out', a !== null && !inside);
+      cell.classList.toggle('loop-out', !!set && !inside);
     });
   }
 

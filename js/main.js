@@ -204,33 +204,65 @@ async function onDeleteClick() {
 // Dos modos con la misma interfaz (current, held, lastEval, percentages):
 // Wait (practice.js) y A tempo (tempo.js). Solo uno está en uso a la vez.
 let score = null;
-let loop = null;            // {a, b}: compases del bucle, o null
+// Bucle: null, o {kind, a, b}.
+//   kind 'free': compases seguidos de a a b.
+//   kind 'col' : una columna del lead sheet (misma posición en cada línea),
+//                de la línea de a a la de b (p. ej. 1, 5, 9… = todos los ii).
+let loop = null;
 let loopSelecting = false;  // esperando el segundo toque para fijar el final
 let shuffle = false;        // tonalidades en orden aleatorio
 let reshuffle = null;       // nuevo orden aleatorio (una vez por ronda)
 const KEY_MEASURES = 4;     // una tonalidad = una línea del lead sheet (ii, V, I, I)
 
-// Baraja las tonalidades (grupos de 4 compases) de la región; dentro de cada
-// una, los acordes siguen en orden. Los tiempos se recolocan seguidos para
-// que el modo A tempo los recorra como si fuera una partitura más.
-function shuffledEvents(sub, a, b, regionStartQ) {
+// Compases que entran en el bucle (o en toda la partitura).
+function loopMeasures() {
+  const n = score ? score.measures.length : 0;
+  if (!loop) return [...Array(n).keys()];
+  const out = [];
+  const step = loop.kind === 'col' ? KEY_MEASURES : 1;
+  for (let i = loop.a; i <= loop.b && i < n; i += step) out.push(i);
+  return out;
+}
+
+// Grupos que se tocan seguidos y que el aleatorio baraja: cada tonalidad
+// (línea de 4 compases, recortada al bucle) o, en un bucle de columna, cada
+// compás suelto.
+function practiceGroups(sub, measures) {
   const groups = [];
-  for (let g = Math.floor(a / KEY_MEASURES) * KEY_MEASURES; g <= b; g += KEY_MEASURES) {
-    const ga = Math.max(g, a);
-    const gb = Math.min(g + KEY_MEASURES - 1, b);
-    const evs = sub.filter((ev) => ev.measureIndex >= ga && ev.measureIndex <= gb);
-    if (!evs.length) continue;
-    const startQ = score.measures[ga].startQ;
-    const lenQ = score.measures[gb].startQ + score.measures[gb].lengthQ - startQ;
-    groups.push({ evs, startQ, lenQ });
+  const add = (ms) => {
+    const evs = sub.filter((ev) => ms.includes(ev.measureIndex));
+    if (!evs.length) return;
+    const first = score.measures[ms[0]];
+    const last = score.measures[ms[ms.length - 1]];
+    groups.push({ evs, startQ: first.startQ, lenQ: last.startQ + last.lengthQ - first.startQ });
+  };
+  if (loop && loop.kind === 'col') {
+    for (const mi of measures) add([mi]);
+  } else {
+    const byRow = new Map();
+    for (const mi of measures) {
+      const r = Math.floor(mi / KEY_MEASURES);
+      if (!byRow.has(r)) byRow.set(r, []);
+      byRow.get(r).push(mi);
+    }
+    for (const ms of byRow.values()) add(ms);
   }
-  for (let i = groups.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [groups[i], groups[j]] = [groups[j], groups[i]];
+  return groups;
+}
+
+// Pone los grupos uno detrás de otro (barajados si se pide), recolocando los
+// tiempos para que el modo A tempo los recorra como una partitura seguida.
+function compactGroups(groups, baseQ, doShuffle) {
+  const gs = [...groups];
+  if (doShuffle) {
+    for (let i = gs.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [gs[i], gs[j]] = [gs[j], gs[i]];
+    }
   }
   const out = [];
-  let q = regionStartQ;
-  for (const g of groups) {
+  let q = baseQ;
+  for (const g of gs) {
     for (const ev of g.evs) out.push({ ...ev, startQ: q + (ev.startQ - g.startQ) });
     q += g.lenQ;
   }
@@ -296,7 +328,7 @@ function roundFinished(e) {
     score: settings.lastScore,
     mode: settings.mode,
     tempo: settings.mode === 'tempo' ? settings.tempo : null,
-    loop: loop ? [loop.a, loop.b] : null,
+    loop: loop ? [loop.a, loop.b, loop.kind] : null,
     shuffle,
     exact: e.exact,
     real: e.real,
@@ -409,26 +441,32 @@ function applyRegion(keepRunning = false) {
   const events = score ? score.events : [];
   let sub = events;
   let region = { startQ: 0, endQ: 0 };
+  let order = null; // orden de cada pasada si no es el de la partitura
+  reshuffle = null;
   if (score && score.measures.length) {
-    const a = loop ? loop.a : 0;
-    const b = loop ? loop.b : score.measures.length - 1;
-    sub = events.filter((ev) => ev.measureIndex >= a && ev.measureIndex <= b);
-    const mb = score.measures[b];
-    region = { startQ: score.measures[a].startQ, endQ: mb.startQ + mb.lengthQ };
+    const measures = loopMeasures();
+    sub = events.filter((ev) => measures.includes(ev.measureIndex));
+    const groups = practiceGroups(sub, measures);
+    if (loop && loop.kind === 'col') {
+      // Compases sueltos: se tocan seguidos, uno detrás de otro.
+      const total = groups.reduce((s, g) => s + g.lenQ, 0);
+      region = { startQ: 0, endQ: total };
+      order = () => compactGroups(groups, 0, shuffle);
+      if (shuffle) reshuffle = order;
+    } else {
+      const ma = score.measures[measures[0]];
+      const mb = score.measures[measures[measures.length - 1]];
+      region = { startQ: ma.startQ, endQ: mb.startQ + mb.lengthQ };
+      if (shuffle && sub.length) reshuffle = order = () => compactGroups(groups, region.startQ, true);
+    }
   }
   const barQ = score && score.measures.length ? score.measures[0].lengthQ : 4;
-  reshuffle = null;
-  if (shuffle && score && sub.length) {
-    const a = loop ? loop.a : 0;
-    const b = loop ? loop.b : score.measures.length - 1;
-    reshuffle = () => shuffledEvents(sub, a, b, region.startQ);
-  }
-  wait.load(reshuffle ? reshuffle() : sub);
-  tempo.load(reshuffle ? reshuffle() : sub, region, barQ);
+  wait.load(order ? order() : sub);
+  tempo.load(order ? order() : sub, region, barQ);
   tempo.orderFor = reshuffle; // A tempo: otro orden en cada pasada
   // Sin bucle, la partitura se toca una vez y se para; con bucle, se repite.
   wait.repeat = tempo.repeat = backing.repeat = !!loop;
-  leadsheet.setLoop(loop ? loop.a : null, loop ? loop.b : null);
+  leadsheet.setLoop(loop ? loopMeasures() : null);
   leadsheet.clearResults();
   updateControls();
   render();
@@ -524,6 +562,9 @@ function updateControls() {
   $('btn-mode-tempo').classList.toggle('selected', isTempo);
   $('bpm').textContent = settings.tempo;
   $('btn-loop').classList.toggle('selected', !!loop);
+  $('loop-modes').hidden = !loop;
+  $('btn-loop-free').classList.toggle('selected', !!loop && loop.kind === 'free');
+  $('btn-loop-col').classList.toggle('selected', !!loop && loop.kind === 'col');
   const a = currentAudio();
   const usable = audioUsable();
   $('btn-audio').classList.toggle('selected', usable && settings.audioOn && !!a);
@@ -531,7 +572,7 @@ function updateControls() {
   $('btn-shuffle').classList.toggle('selected', shuffle);
   // Mientras se toca, solo pausar, reiniciar, tempo y opciones (decisión del
   // usuario): lo demás cambiaría el ejercicio a mitad de ronda.
-  for (const id of ['btn-shuffle', 'btn-loop', 'btn-mode-wait', 'btn-mode-tempo', 'btn-import', 'score-select']) {
+  for (const id of ['btn-shuffle', 'btn-loop', 'btn-loop-free', 'btn-loop-col', 'btn-mode-wait', 'btn-mode-tempo', 'btn-import', 'score-select']) {
     $(id).disabled = running;
   }
   if (running) $('btn-delete').disabled = true;
@@ -808,17 +849,7 @@ const keyboard = new Keyboard($('keyboard'), { onPress: press, onRelease: releas
 const leadsheet = new LeadSheet($('leadsheet'), (measureIndex) => {
   if (settings.mode === 'tempo' ? tempo.running : wait.active) return; // en marcha no se salta ni se cambia el bucle
   if (loop) {
-    if (!loopSelecting) {
-      loop = { a: measureIndex, b: measureIndex };
-      loopSelecting = true;
-      applyRegion(true);
-      showMessage('Toca el último compás del bucle.');
-    } else {
-      loop = { a: Math.min(loop.a, measureIndex), b: Math.max(loop.a, measureIndex) };
-      loopSelecting = false;
-      applyRegion(true);
-      showMessage(`Bucle: compases ${score.measures[loop.a].number}–${score.measures[loop.b].number}`);
-    }
+    selectLoopMeasure(measureIndex);
     return;
   }
   const practice = P();
@@ -980,22 +1011,89 @@ $('btn-shuffle').addEventListener('click', () => {
   showMessage(shuffle ? 'Tonalidades en orden aleatorio.' : '');
   applyRegion(true);
 });
+// Elegir el bucle tocando compases del lead sheet.
+//   Libre  : primer toque = inicio, segundo = final (compases seguidos).
+//   Columna: primer toque = esa columna desde ese compás; segundo toque en la
+//            misma columna = hasta ahí (en otra columna, empieza de nuevo).
+function setLoop(next, message) {
+  const prev = loop;
+  loop = next;
+  if (next && !score.events.some((ev) => loopMeasures().includes(ev.measureIndex))) {
+    loop = prev;
+    showMessage('Esa columna no tiene acordes nuevos (el acorde viene ligado del compás anterior).', true);
+    return false;
+  }
+  applyRegion(true);
+  if (message) showMessage(message);
+  return true;
+}
+function colLabel(l) {
+  const nums = [];
+  for (let i = l.a; i <= l.b; i += KEY_MEASURES) nums.push(score.measures[i].number);
+  return nums.length > 4 ? `${nums.slice(0, 3).join(', ')}… ${nums[nums.length - 1]}` : nums.join(', ');
+}
+function fullColumn(mi) {
+  const col = mi % KEY_MEASURES;
+  let b = col;
+  while (b + KEY_MEASURES < score.measures.length) b += KEY_MEASURES;
+  return { kind: 'col', a: col, b };
+}
+function selectLoopMeasure(mi) {
+  if (loop.kind === 'col') {
+    if (loopSelecting && mi % KEY_MEASURES === loop.a % KEY_MEASURES) {
+      const next = { kind: 'col', a: Math.min(loop.a, mi), b: Math.max(loop.a, mi) };
+      loopSelecting = false;
+      setLoop(next, `Bucle en columna: compases ${colLabel(next)}`);
+    } else {
+      // Esa columna desde el compás tocado hacia abajo; un segundo toque en
+      // la misma columna elige hasta dónde.
+      const next = { kind: 'col', a: mi, b: fullColumn(mi).b };
+      if (setLoop(next)) {
+        loopSelecting = true;
+        showMessage(`Bucle en columna: compases ${colLabel(next)}. Toca otro compás de esta columna para elegir hasta dónde.`);
+      }
+    }
+    return;
+  }
+  if (!loopSelecting) {
+    loopSelecting = true;
+    setLoop({ kind: 'free', a: mi, b: mi }, 'Toca el último compás del bucle.');
+  } else {
+    loopSelecting = false;
+    const next = { kind: 'free', a: Math.min(loop.a, mi), b: Math.max(loop.a, mi) };
+    setLoop(next, `Bucle: compases ${score.measures[next.a].number}–${score.measures[next.b].number}`);
+  }
+}
+function currentMeasure() {
+  const cur = P().current;
+  return cur ? cur.measureIndex : 0;
+}
+function loopFree() {
+  // La línea actual (4 compases = una tonalidad).
+  const a = currentMeasure() - (currentMeasure() % KEY_MEASURES);
+  loopSelecting = false;
+  setLoop({ kind: 'free', a, b: Math.min(a + KEY_MEASURES - 1, score.measures.length - 1) },
+    'Bucle en esta línea. Para elegir otro, toca el primer y el último compás.');
+}
+function loopColumn() {
+  // La columna del compás actual, entera.
+  loopSelecting = false;
+  const next = fullColumn(currentMeasure());
+  if (!setLoop(next)) return;
+  showMessage(`Bucle en columna: compases ${colLabel(next)}. Toca un compás para elegir otra columna.`);
+}
 $('btn-loop').addEventListener('click', () => {
   loopSelecting = false;
   if (loop) {
     loop = null;
     showMessage('');
+    applyRegion(true);
   } else if (score && score.measures.length) {
-    // Por defecto, la línea actual (4 compases = una tonalidad).
-    const cur = P().current;
-    const a = cur ? cur.measureIndex - (cur.measureIndex % 4) : 0;
-    loop = { a, b: Math.min(a + 3, score.measures.length - 1) };
-    showMessage('Bucle en esta línea. Para elegir otro, toca el primer y el último compás.');
-  } else {
-    return;
+    loopFree();
   }
-  applyRegion(true);
 });
+$('btn-loop-free').addEventListener('click', () => { if (loop && loop.kind !== 'free') loopFree(); });
+$('btn-loop-col').addEventListener('click', () => { if (loop && loop.kind !== 'col') loopColumn(); });
 $('score-select').addEventListener('change', (e) => { showMessage(''); selectScore(e.target.value); });
 $('btn-import').addEventListener('click', () => $('file-input').click());
 $('file-input').addEventListener('change', (e) => {
